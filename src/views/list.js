@@ -1,5 +1,6 @@
 import { listEntries, getFirstThumbnail, countPhotos } from '../db.js';
 import { navigate } from '../router.js';
+import { BUILD_LABEL } from '../lib/build-info.js';
 
 export async function renderList({ root }) {
   const urls = [];
@@ -7,7 +8,8 @@ export async function renderList({ root }) {
 
   root.innerHTML = `
     <header class="topbar">
-      <h1>Einträge</h1>
+      <span></span>
+      <h1>Einträge<small>${BUILD_LABEL}</small></h1>
       <a class="link" href="#/export">Export</a>
     </header>
     <main class="list-main">

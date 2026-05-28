@@ -5,6 +5,7 @@ import {
 import { navigate } from '../router.js';
 import { getCurrentPosition } from '../lib/geo.js';
 import { pickPhoto, processPhoto } from '../lib/camera.js';
+import { BUILD_LABEL } from '../lib/build-info.js';
 
 export async function renderEditor({ root, params }) {
   const isNew = params.id == null || params.id === 'new';
@@ -32,7 +33,7 @@ export async function renderEditor({ root, params }) {
   root.innerHTML = `
     <header class="topbar">
       <a class="link" href="#/" data-action="back">← Zurück</a>
-      <h1>${isNew ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}</h1>
+      <h1>${isNew ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}<small>${BUILD_LABEL}</small></h1>
       <span></span>
     </header>
     <main class="editor">
@@ -95,18 +96,29 @@ export async function renderEditor({ root, params }) {
       return;
     }
     const g = state.gps;
-    const when = g.gpsTimestamp ? new Date(g.gpsTimestamp).toLocaleString('de-DE') : '';
-    const rows = [
-      ['Breitengrad', g.lat?.toFixed(6)],
-      ['Längengrad', g.lng?.toFixed(6)],
-      ['Genauigkeit', g.accuracy != null ? `±${Math.round(g.accuracy)} m` : '—'],
-      ['Höhe', g.altitude != null ? `${g.altitude.toFixed(1)} m` : '—'],
-      ['Höhen-Genauigkeit', g.altitudeAccuracy != null ? `±${Math.round(g.altitudeAccuracy)} m` : '—'],
-      ['Richtung', g.heading != null ? `${Math.round(g.heading)}°` : '—'],
-      ['Geschwindigkeit', g.speed != null ? `${g.speed.toFixed(1)} m/s` : '—'],
-      ['Zeitpunkt', when],
-    ];
-    box.innerHTML = '<dl>' + rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('') + '</dl>';
+
+    // Zeile 1: Koordinaten + horizontale Genauigkeit (immer vorhanden).
+    const acc = g.accuracy != null ? ` · ±${Math.round(g.accuracy)} m` : '';
+    const line1 = `${g.lat.toFixed(5)}, ${g.lng.toFixed(5)}${acc}`;
+
+    // Zeile 2: optionale Felder (Höhe, Richtung, Geschwindigkeit, Uhrzeit).
+    const extras = [];
+    if (g.altitude != null) {
+      const altAcc = g.altitudeAccuracy != null ? ` ±${Math.round(g.altitudeAccuracy)}` : '';
+      extras.push(`H ${Math.round(g.altitude)}${altAcc} m`);
+    }
+    if (g.heading != null) extras.push(`${Math.round(g.heading)}°`);
+    if (g.speed != null) extras.push(`${g.speed.toFixed(1)} m/s`);
+    if (g.gpsTimestamp) {
+      extras.push(new Date(g.gpsTimestamp).toLocaleTimeString('de-DE', {
+        hour: '2-digit', minute: '2-digit',
+      }));
+    }
+
+    const line2Html = extras.length
+      ? `<div class="gps-line gps-line-2">${extras.join(' · ')}</div>`
+      : '';
+    box.innerHTML = `<div class="gps-line">${line1}</div>${line2Html}`;
     root.querySelector('#btn-gps').textContent = 'Erneut messen';
   }
 

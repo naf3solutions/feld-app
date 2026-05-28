@@ -1,6 +1,7 @@
 import { listEntries } from '../db.js';
 import { buildExportZip, triggerDownload } from '../lib/zip.js';
 import { navigate } from '../router.js';
+import { BUILD_LABEL } from '../lib/build-info.js';
 
 export async function renderExport({ root }) {
   const entries = await listEntries();
@@ -8,7 +9,7 @@ export async function renderExport({ root }) {
   root.innerHTML = `
     <header class="topbar">
       <a class="link" href="#/" data-action="back">← Zurück</a>
-      <h1>Export</h1>
+      <h1>Export<small>${BUILD_LABEL}</small></h1>
       <span></span>
     </header>
     <main class="editor">
