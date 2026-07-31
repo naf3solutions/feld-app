@@ -26,6 +26,7 @@ export async function renderEditor({ root, params }) {
       altitude: entry.altitude, altitudeAccuracy: entry.altitudeAccuracy,
       heading: entry.heading, speed: entry.speed, gpsTimestamp: entry.gpsTimestamp,
     } : null,
+    gpsCandidate: null,
     entryId: isNew ? null : Number(params.id),
   };
   const objectUrls = [];
@@ -44,8 +45,7 @@ export async function renderEditor({ root, params }) {
 
       <section class="field">
         <span class="label">GPS</span>
-        <div class="gps-box" id="gps-box"></div>
-        <button type="button" class="btn" id="btn-gps">Standort holen</button>
+        <div id="gps-section"></div>
         <p class="hint" id="gps-msg" role="status"></p>
       </section>
 
@@ -75,10 +75,9 @@ export async function renderEditor({ root, params }) {
   autoGrow(notesInput);
   notesInput.addEventListener('input', () => autoGrow(notesInput));
 
-  renderGps();
+  renderGpsSection();
   await renderPhotos();
 
-  root.querySelector('#btn-gps').addEventListener('click', onGetGps);
   root.querySelector('#btn-photo').addEventListener('click', onAddPhoto);
   root.querySelector('#btn-save').addEventListener('click', onSave);
   if (!isNew) {
@@ -89,14 +88,7 @@ export async function renderEditor({ root, params }) {
     navigate('/');
   });
 
-  function renderGps() {
-    const box = root.querySelector('#gps-box');
-    if (!state.gps) {
-      box.innerHTML = '<p class="muted">Noch nicht ermittelt.</p>';
-      return;
-    }
-    const g = state.gps;
-
+  function renderGpsLines(g) {
     // Zeile 1: Koordinaten + horizontale Genauigkeit (immer vorhanden).
     const acc = g.accuracy != null ? ` · ±${Math.round(g.accuracy)} m` : '';
     const line1 = `${g.lat.toFixed(5)}, ${g.lng.toFixed(5)}${acc}`;
@@ -118,26 +110,91 @@ export async function renderEditor({ root, params }) {
     const line2Html = extras.length
       ? `<div class="gps-line gps-line-2">${extras.join(' · ')}</div>`
       : '';
-    box.innerHTML = `<div class="gps-line">${line1}</div>${line2Html}`;
-    root.querySelector('#btn-gps').textContent = 'Erneut messen';
+    return `<div class="gps-line">${line1}</div>${line2Html}`;
+  }
+
+  function pickDefault(oldGps, newGps) {
+    const oldAcc = oldGps?.accuracy;
+    const newAcc = newGps?.accuracy;
+    if (oldAcc == null && newAcc == null) return 'new';
+    if (oldAcc == null) return 'new';
+    if (newAcc == null) return 'old';
+    return oldAcc <= newAcc ? 'old' : 'new';
+  }
+
+  function renderGpsSection() {
+    const section = root.querySelector('#gps-section');
+
+    if (state.gpsCandidate) {
+      const preferred = pickDefault(state.gps, state.gpsCandidate);
+      section.innerHTML = `
+        <div class="gps-box gps-choices">
+          <label class="gps-choice">
+            <input type="radio" name="gps-pick" value="old" ${preferred === 'old' ? 'checked' : ''} />
+            <div class="gps-choice-body">
+              <div class="gps-choice-label">Gespeichert</div>
+              ${renderGpsLines(state.gps)}
+            </div>
+          </label>
+          <label class="gps-choice">
+            <input type="radio" name="gps-pick" value="new" ${preferred === 'new' ? 'checked' : ''} />
+            <div class="gps-choice-body">
+              <div class="gps-choice-label">Neu gemessen</div>
+              ${renderGpsLines(state.gpsCandidate)}
+            </div>
+          </label>
+        </div>
+        <div class="gps-actions">
+          <button type="button" class="btn" id="btn-gps-cancel">Neuen Wert verwerfen</button>
+          <button type="button" class="btn primary" id="btn-gps-confirm">Übernehmen</button>
+        </div>
+      `;
+      section.querySelector('#btn-gps-cancel').addEventListener('click', () => {
+        state.gpsCandidate = null;
+        renderGpsSection();
+      });
+      section.querySelector('#btn-gps-confirm').addEventListener('click', () => {
+        const pick = section.querySelector('input[name="gps-pick"]:checked')?.value;
+        if (pick === 'new') state.gps = state.gpsCandidate;
+        state.gpsCandidate = null;
+        renderGpsSection();
+      });
+    } else if (state.gps) {
+      section.innerHTML = `
+        <div class="gps-box">${renderGpsLines(state.gps)}</div>
+        <button type="button" class="btn" id="btn-gps">Erneut messen</button>
+      `;
+      section.querySelector('#btn-gps').addEventListener('click', onGetGps);
+    } else {
+      section.innerHTML = `
+        <div class="gps-box"><p class="muted">Noch nicht ermittelt.</p></div>
+        <button type="button" class="btn" id="btn-gps">Standort holen</button>
+      `;
+      section.querySelector('#btn-gps').addEventListener('click', onGetGps);
+    }
   }
 
   async function onGetGps() {
     const btn = root.querySelector('#btn-gps');
     const msg = root.querySelector('#gps-msg');
-    btn.disabled = true;
-    btn.textContent = 'Messe…';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Messe…';
+    }
     msg.textContent = '';
     msg.classList.remove('error');
     try {
-      state.gps = await getCurrentPosition();
-      renderGps();
+      const measurement = await getCurrentPosition();
+      if (state.gps) {
+        state.gpsCandidate = measurement;
+      } else {
+        state.gps = measurement;
+      }
+      renderGpsSection();
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('error');
-      btn.textContent = state.gps ? 'Erneut messen' : 'Standort holen';
-    } finally {
-      btn.disabled = false;
+      renderGpsSection();
     }
   }
 

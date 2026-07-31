@@ -238,6 +238,48 @@ input:focus, textarea:focus {
   color: var(--text-muted);
 }
 
+#gps-section { display: flex; flex-direction: column; gap: 8px; }
+
+.gps-choices { padding: 4px 8px; }
+.gps-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 6px;
+  cursor: pointer;
+  border-radius: 8px;
+}
+.gps-choice + .gps-choice {
+  border-top: 1px solid var(--border);
+}
+.gps-choice input {
+  width: 22px;
+  height: 22px;
+  margin-top: 3px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.gps-choice:has(input:checked) {
+  background: rgba(37, 99, 235, 0.10);
+}
+.gps-choice-body {
+  flex: 1;
+  min-width: 0;
+}
+.gps-choice-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+.gps-actions {
+  display: flex;
+  gap: 8px;
+}
+.gps-actions .btn { flex: 1; }
+
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
