@@ -29,7 +29,8 @@ export async function renderExport({ root }) {
 
       <p class="hint">
         Das ZIP enthält die Tabelle und alle Fotos im Unterordner <code>photos/</code>.
-        In der Tabelle steht pro Eintrag die Liste der dazugehörigen Foto-Dateinamen.
+        In der Spalte <code>photos</code> stehen die Dateinamen mehrerer Fotos mit <code>|</code> getrennt.
+        Die CSV nutzt Semikolon als Feldtrenner und Komma als Dezimaltrennzeichen (Excel-DE-Standard).
       </p>
 
       <div class="actions">

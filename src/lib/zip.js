@@ -10,6 +10,11 @@ const COLUMNS = [
   'notes', 'photos',
 ];
 
+const NUMERIC_COLUMNS = new Set([
+  'lat', 'lng', 'accuracy',
+  'altitude', 'altitudeAccuracy', 'heading', 'speed',
+]);
+
 export async function buildExportZip({ format = 'csv' } = {}) {
   const zip = new JSZip();
   const entries = await listEntries();
@@ -26,25 +31,25 @@ export async function buildExportZip({ format = 'csv' } = {}) {
     rows.push({
       id: entry.id,
       name: entry.name ?? '',
-      lat: entry.lat ?? '',
-      lng: entry.lng ?? '',
-      accuracy: entry.accuracy ?? '',
-      altitude: entry.altitude ?? '',
-      altitudeAccuracy: entry.altitudeAccuracy ?? '',
-      heading: entry.heading ?? '',
-      speed: entry.speed ?? '',
-      gpsTimestamp: entry.gpsTimestamp ? new Date(entry.gpsTimestamp).toISOString() : '',
+      lat: entry.lat,
+      lng: entry.lng,
+      accuracy: entry.accuracy,
+      altitude: entry.altitude,
+      altitudeAccuracy: entry.altitudeAccuracy,
+      heading: entry.heading,
+      speed: entry.speed,
+      gpsTimestamp: entry.gpsTimestamp ? new Date(entry.gpsTimestamp).toISOString() : null,
       createdAt: new Date(entry.createdAt).toISOString(),
       updatedAt: new Date(entry.updatedAt).toISOString(),
       notes: entry.notes ?? '',
-      photos: filenames.join(';'),
+      photos: filenames.join('|'),
     });
   }
 
   if (format === 'json') {
     zip.file('entries.json', JSON.stringify(rows, null, 2));
   } else {
-    zip.file('entries.csv', toCsv(rows, COLUMNS));
+    zip.file('entries.csv', toCsv(rows, COLUMNS, NUMERIC_COLUMNS));
   }
 
   return zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
