@@ -444,3 +444,16 @@ code {
 }
 .ocr-btn:active { background: #475569; }
 .ocr-btn:disabled { opacity: 0.5; }
+
+/* GPS-Koordinate als Link zur Karten-App */
+.gps-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+}
+.gps-link:active { background: var(--surface-2); }
+.gps-link-body { flex: 1; min-width: 0; }
+.gps-link-icon { flex: none; color: #93c5fd; }
