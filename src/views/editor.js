@@ -26,6 +26,9 @@ export async function renderEditor({ root, params }) {
       lat: entry.lat, lng: entry.lng, accuracy: entry.accuracy,
       altitude: entry.altitude, altitudeAccuracy: entry.altitudeAccuracy,
       heading: entry.heading, speed: entry.speed, gpsTimestamp: entry.gpsTimestamp,
+      gpsSource: entry.gpsSource ?? 'gps',
+      measuredLat: entry.measuredLat ?? null, measuredLng: entry.measuredLng ?? null,
+      measuredAccuracy: entry.measuredAccuracy ?? null,
     } : null,
     gpsCandidate: null,
     entryId: isNew ? null : Number(params.id),
@@ -114,7 +117,9 @@ export async function renderEditor({ root, params }) {
 
   function renderGpsLines(g) {
     // Zeile 1: Koordinaten + horizontale Genauigkeit (immer vorhanden).
-    const acc = g.accuracy != null ? ` · ±${Math.round(g.accuracy)} m` : '';
+    const acc = g.gpsSource === 'manual'
+      ? ' · manuell korrigiert'
+      : (g.accuracy != null ? ` · ±${Math.round(g.accuracy)} m` : '');
     const line1 = `${g.lat.toFixed(5)}, ${g.lng.toFixed(5)}${acc}`;
 
     // Zeile 2: optionale Felder (Höhe, Richtung, Geschwindigkeit, Uhrzeit).
@@ -138,6 +143,7 @@ export async function renderEditor({ root, params }) {
   }
 
   function pickDefault(oldGps, newGps) {
+    if (oldGps?.gpsSource === 'manual') return 'old';
     const oldAcc = oldGps?.accuracy;
     const newAcc = newGps?.accuracy;
     if (oldAcc == null && newAcc == null) return 'new';
@@ -185,17 +191,14 @@ export async function renderEditor({ root, params }) {
       });
     } else if (state.gps) {
       section.innerHTML = `
-        <a class="gps-box gps-link" href="${escapeAttr(mapsUrl(state.gps, nameInput.value.trim()))}" aria-label="Position in Karten-App öffnen">
+        <button type="button" class="gps-box gps-link" aria-label="Position auf Karte prüfen und korrigieren">
           <div class="gps-link-body">${renderGpsLines(state.gps)}</div>
           <svg class="gps-link-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>
-        </a>
+        </button>
         <button type="button" class="btn" id="btn-gps">Erneut messen</button>
       `;
       section.querySelector('#btn-gps').addEventListener('click', onGetGps);
-      // Aktuellen Namen als Beschriftung der Stecknadel verwenden
-      section.querySelector('.gps-link').addEventListener('click', (e) => {
-        e.currentTarget.href = mapsUrl(state.gps, nameInput.value.trim());
-      });
+      section.querySelector('.gps-link').addEventListener('click', onOpenMap);
     } else {
       section.innerHTML = `
         <div class="gps-box"><p class="muted">Noch nicht ermittelt.</p></div>
@@ -226,6 +229,44 @@ export async function renderEditor({ root, params }) {
       msg.textContent = err.message;
       msg.classList.add('error');
       renderGpsSection();
+    }
+  }
+
+  async function onOpenMap() {
+    const g = state.gps;
+    const msg = root.querySelector('#gps-msg');
+    msg.textContent = '';
+    msg.classList.remove('error');
+    try {
+      const { openMapPicker } = await import('../lib/mappicker.js');
+      const label = nameInput.value.trim();
+      const measured = g.gpsSource === 'manual'
+        ? { lat: g.measuredLat, lng: g.measuredLng, accuracy: g.measuredAccuracy }
+        : { lat: g.lat, lng: g.lng, accuracy: g.accuracy };
+      const result = await openMapPicker({
+        gps: g,
+        measured,
+        label,
+        externalUrl: (p) => mapsUrl(p, label),
+      });
+      if (!result) return;
+      const moved = Math.abs(result.lat - g.lat) > 1e-7 || Math.abs(result.lng - g.lng) > 1e-7;
+      if (!moved) return;
+      const backOnMeasured = measured.lat != null
+        && Math.abs(result.lat - measured.lat) < 1e-7 && Math.abs(result.lng - measured.lng) < 1e-7;
+      state.gps = backOnMeasured
+        ? { ...g, lat: measured.lat, lng: measured.lng, accuracy: measured.accuracy,
+            gpsSource: 'gps', measuredLat: null, measuredLng: null, measuredAccuracy: null }
+        : { ...g, lat: result.lat, lng: result.lng, accuracy: null, gpsSource: 'manual',
+            measuredLat: measured.lat, measuredLng: measured.lng, measuredAccuracy: measured.accuracy };
+      renderGpsSection();
+      msg.textContent = backOnMeasured
+        ? 'Position auf GPS-Messung zurückgesetzt – Speichern nicht vergessen.'
+        : 'Position korrigiert – Speichern nicht vergessen.';
+    } catch (err) {
+      console.error('[map]', err);
+      msg.textContent = `Karte konnte nicht geöffnet werden: ${err.message}`;
+      msg.classList.add('error');
     }
   }
 
@@ -435,6 +476,10 @@ export async function renderEditor({ root, params }) {
       heading: g.heading ?? null,
       speed: g.speed ?? null,
       gpsTimestamp: g.gpsTimestamp ?? null,
+      gpsSource: g.lat != null ? (g.gpsSource ?? 'gps') : null,
+      measuredLat: g.measuredLat ?? null,
+      measuredLng: g.measuredLng ?? null,
+      measuredAccuracy: g.measuredAccuracy ?? null,
     };
   }
 

@@ -12,6 +12,7 @@
   "dependencies": {
     "dexie": "^4.0.10",
     "jszip": "^3.10.1",
+    "leaflet": "1.9",
     "piexifjs": "^1.0.6",
     "tesseract.js": "^7.0.0"
   },
