@@ -5,12 +5,13 @@ const THUMB_EDGE = 200;
 const JPEG_QUALITY = 0.85;
 const THUMB_QUALITY = 0.7;
 
-export function pickPhoto() {
+// camera=true: direkt Kamera öffnen; false: System-Auswahl (Mediathek/Dateien/Kamera)
+export function pickPhoto({ camera = true } = {}) {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
-    input.capture = 'environment';
+    if (camera) input.capture = 'environment';
     input.style.display = 'none';
     input.addEventListener('change', () => {
       const file = input.files?.[0] ?? null;
