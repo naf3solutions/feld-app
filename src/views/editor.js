@@ -58,7 +58,10 @@ export async function renderEditor({ root, params }) {
       <section class="field">
         <span class="label">Fotos</span>
         <div class="photo-grid" id="photo-grid"></div>
-        <button type="button" class="btn" id="btn-photo">Foto aufnehmen</button>
+        <div class="photo-actions">
+          <button type="button" class="btn" id="btn-photo">Foto aufnehmen</button>
+          <button type="button" class="btn" id="btn-photo-lib">Aus Mediathek wählen</button>
+        </div>
         <p class="hint" id="photo-msg" role="status"></p>
       </section>
 
@@ -84,7 +87,8 @@ export async function renderEditor({ root, params }) {
   renderGpsSection();
   await renderPhotos();
 
-  root.querySelector('#btn-photo').addEventListener('click', onAddPhoto);
+  root.querySelector('#btn-photo').addEventListener('click', () => onAddPhoto({ camera: true }));
+  root.querySelector('#btn-photo-lib').addEventListener('click', () => onAddPhoto({ camera: false }));
   root.querySelector('#btn-save').addEventListener('click', onSave);
   root.querySelector('#btn-save-quick').addEventListener('click', onSave);
   if (!isNew) {
@@ -212,12 +216,12 @@ export async function renderEditor({ root, params }) {
     return id;
   }
 
-  async function onAddPhoto() {
+  async function onAddPhoto({ camera = true } = {}) {
     const msg = root.querySelector('#photo-msg');
     msg.textContent = '';
     msg.classList.remove('error');
     try {
-      const file = await pickPhoto();
+      const file = await pickPhoto({ camera });
       if (!file) return;
       msg.textContent = 'Verarbeite Foto…';
       const { blob, thumbnail, exif, meta, hadOriginalExif } = await processPhoto(file, { gps: state.gps });

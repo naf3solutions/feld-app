@@ -358,3 +358,6 @@ code {
   border-radius: 4px;
   font-size: 0.88em;
 }
+
+.photo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.photo-actions .btn { flex: 1 1 140px; }
