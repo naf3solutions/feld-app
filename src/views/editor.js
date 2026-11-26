@@ -213,9 +213,9 @@ export async function renderEditor({ root, params }) {
       const file = await pickPhoto();
       if (!file) return;
       msg.textContent = 'Verarbeite Foto…';
-      const { blob, thumbnail } = await processPhoto(file);
+      const { blob, thumbnail, exif, meta } = await processPhoto(file, { gps: state.gps });
       const entryId = await ensureEntryId();
-      await addPhoto({ entryId, blob, thumbnail });
+      await addPhoto({ entryId, blob, thumbnail, exif, meta });
       msg.textContent = '';
       await renderPhotos();
     } catch (err) {
