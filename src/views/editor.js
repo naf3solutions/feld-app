@@ -35,14 +35,15 @@ export async function renderEditor({ root, params }) {
 
   root.innerHTML = `
     <header class="topbar">
-      <a class="link" href="#/" data-action="back">← Zurück</a>
+      <a class="link nav-back" href="#/" data-action="back" aria-label="Zurück"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></a>
       <h1>${isNew ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}<small>${BUILD_LABEL}</small></h1>
-      <button type="button" class="icon-btn" id="btn-save-quick" aria-label="Speichern" title="Speichern">
-        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+      <button type="button" class="save-pill" id="btn-save-quick">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
           <path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
           <path d="M7 3v5h8V3"/>
           <rect x="7" y="13" width="10" height="6" rx="1"/>
         </svg>
+        Speichern
       </button>
     </header>
     <main class="editor">
@@ -50,7 +51,7 @@ export async function renderEditor({ root, params }) {
         <label class="label" for="f-name">Name</label>
         <div class="name-row">
           <input type="text" id="f-name" autocomplete="off" inputmode="text" />
-          <button type="button" class="icon-btn" id="btn-ocr" aria-label="Name aus Foto lesen" title="Name aus Foto lesen">
+          <button type="button" class="ocr-btn" id="btn-ocr" aria-label="Name aus Foto lesen" title="Name aus Foto lesen">
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
               <path d="M7 9h10M7 12h10M7 15h6"/>
