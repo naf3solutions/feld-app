@@ -7,7 +7,8 @@ const COLUMNS = [
   'id', 'name',
   'lat', 'lng', 'accuracy',
   'altitude', 'altitudeAccuracy', 'heading', 'speed',
-  'gpsTimestamp', 'createdAt', 'updatedAt',
+  'gpsTimestamp', 'gpsSource', 'measuredLat', 'measuredLng', 'measuredAccuracy',
+  'createdAt', 'updatedAt',
   'notes', 'photo',
   'photoCamera', 'photoLens', 'photoTakenAt', 'photoExposure',
   'photoFNumber', 'photoISO', 'photoFocalLength', 'photoFocalLength35mm',
@@ -31,6 +32,7 @@ function photoColumns(filename, m = {}) {
 const NUMERIC_COLUMNS = new Set([
   'lat', 'lng', 'accuracy',
   'altitude', 'altitudeAccuracy', 'heading', 'speed',
+  'measuredLat', 'measuredLng', 'measuredAccuracy',
   'photoFNumber', 'photoFocalLength',
 ]);
 
@@ -53,6 +55,10 @@ export async function buildExportZip({ format = 'csv' } = {}) {
       heading: entry.heading,
       speed: entry.speed,
       gpsTimestamp: entry.gpsTimestamp ? new Date(entry.gpsTimestamp).toISOString() : null,
+      gpsSource: entry.lat != null ? (entry.gpsSource ?? 'gps') : null,
+      measuredLat: entry.measuredLat ?? null,
+      measuredLng: entry.measuredLng ?? null,
+      measuredAccuracy: entry.measuredAccuracy ?? null,
       createdAt: new Date(entry.createdAt).toISOString(),
       updatedAt: new Date(entry.updatedAt).toISOString(),
       notes: entry.notes ?? '',
