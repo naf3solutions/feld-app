@@ -35,7 +35,13 @@ export async function renderEditor({ root, params }) {
     <header class="topbar">
       <a class="link" href="#/" data-action="back">← Zurück</a>
       <h1>${isNew ? 'Neuer Eintrag' : 'Eintrag bearbeiten'}<small>${BUILD_LABEL}</small></h1>
-      <span></span>
+      <button type="button" class="icon-btn" id="btn-save-quick" aria-label="Speichern" title="Speichern">
+        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+          <path d="M5 3h11l3 3v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+          <path d="M7 3v5h8V3"/>
+          <rect x="7" y="13" width="10" height="6" rx="1"/>
+        </svg>
+      </button>
     </header>
     <main class="editor">
       <label class="field">
@@ -80,6 +86,7 @@ export async function renderEditor({ root, params }) {
 
   root.querySelector('#btn-photo').addEventListener('click', onAddPhoto);
   root.querySelector('#btn-save').addEventListener('click', onSave);
+  root.querySelector('#btn-save-quick').addEventListener('click', onSave);
   if (!isNew) {
     root.querySelector('#btn-delete').addEventListener('click', onDelete);
   }
@@ -213,10 +220,10 @@ export async function renderEditor({ root, params }) {
       const file = await pickPhoto();
       if (!file) return;
       msg.textContent = 'Verarbeite Foto…';
-      const { blob, thumbnail, exif, meta } = await processPhoto(file, { gps: state.gps });
+      const { blob, thumbnail, exif, meta, hadOriginalExif } = await processPhoto(file, { gps: state.gps });
       const entryId = await ensureEntryId();
       await addPhoto({ entryId, blob, thumbnail, exif, meta });
-      msg.textContent = '';
+      msg.textContent = describeExif(meta, hadOriginalExif, file);
       await renderPhotos();
     } catch (err) {
       msg.textContent = err.message;
@@ -292,6 +299,24 @@ export async function renderEditor({ root, params }) {
       objectUrls.forEach((u) => URL.revokeObjectURL(u));
     },
   };
+}
+
+// Kurzinfo, welche Metadaten vom Browser beim Foto mitgeliefert wurden.
+function describeExif(meta, hadOriginalExif, file) {
+  const fileInfo = `${file.type || 'unbekannter Typ'}, ${Math.round(file.size / 1024)} KB`;
+  if (!hadOriginalExif) {
+    return `Keine Kameradaten vom Browser erhalten (${fileInfo}).`;
+  }
+  const parts = [
+    meta.camera,
+    meta.exposureTime,
+    meta.fNumber != null ? `f/${String(meta.fNumber).replace('.', ',')}` : null,
+    meta.iso != null ? `ISO ${meta.iso}` : null,
+    meta.focalLength != null ? `${String(meta.focalLength).replace('.', ',')} mm` : null,
+  ].filter(Boolean);
+  return parts.length
+    ? `Kamera: ${parts.join(' · ')}`
+    : `EXIF erhalten, aber ohne Kameradaten (${fileInfo}).`;
 }
 
 function autoGrow(textarea) {
