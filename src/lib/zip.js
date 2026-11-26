@@ -8,30 +8,30 @@ const COLUMNS = [
   'lat', 'lng', 'accuracy',
   'altitude', 'altitudeAccuracy', 'heading', 'speed',
   'gpsTimestamp', 'createdAt', 'updatedAt',
-  'notes', 'photos',
+  'notes', 'photo',
   'photoCamera', 'photoLens', 'photoTakenAt', 'photoExposure',
   'photoFNumber', 'photoISO', 'photoFocalLength', 'photoFocalLength35mm',
 ];
 
-// Foto-Metadaten: ein Wert pro Foto, mit | getrennt (gleiche Reihenfolge wie 'photos').
-const PHOTO_META_COLUMNS = {
-  photoCamera: (m) => m.camera,
-  photoLens: (m) => m.lens,
-  photoTakenAt: (m) => (m.dateTimeOriginal ? new Date(m.dateTimeOriginal).toISOString() : null),
-  photoExposure: (m) => m.exposureTime,
-  photoFNumber: (m) => decimal(m.fNumber),
-  photoISO: (m) => m.iso,
-  photoFocalLength: (m) => decimal(m.focalLength),
-  photoFocalLength35mm: (m) => m.focalLength35mm,
-};
-
-function decimal(v) {
-  return v == null ? null : String(v).replace('.', ',');
+// Foto-Metadaten-Spalten (eine Zeile pro Foto).
+function photoColumns(filename, m = {}) {
+  return {
+    photo: filename,
+    photoCamera: m.camera ?? null,
+    photoLens: m.lens ?? null,
+    photoTakenAt: m.dateTimeOriginal ? new Date(m.dateTimeOriginal).toISOString() : null,
+    photoExposure: m.exposureTime ?? null,
+    photoFNumber: m.fNumber ?? null,
+    photoISO: m.iso ?? null,
+    photoFocalLength: m.focalLength ?? null,
+    photoFocalLength35mm: m.focalLength35mm ?? null,
+  };
 }
 
 const NUMERIC_COLUMNS = new Set([
   'lat', 'lng', 'accuracy',
   'altitude', 'altitudeAccuracy', 'heading', 'speed',
+  'photoFNumber', 'photoFocalLength',
 ]);
 
 export async function buildExportZip({ format = 'csv' } = {}) {
@@ -41,17 +41,8 @@ export async function buildExportZip({ format = 'csv' } = {}) {
 
   for (const entry of entries) {
     const photos = await getPhotosForEntry(entry.id);
-    const filenames = [];
-    const metas = [];
     const gps = entry.lat != null ? entry : null;
-    for (let i = 0; i < photos.length; i++) {
-      const filename = `entry-${entry.id}-${i + 1}.jpg`;
-      filenames.push(filename);
-      const { blob, meta } = await exportPhoto(photos[i], gps);
-      zip.file(`photos/${filename}`, blob);
-      metas.push({ file: filename, ...meta });
-    }
-    rows.push({
+    const base = {
       id: entry.id,
       name: entry.name ?? '',
       lat: entry.lat,
@@ -65,14 +56,18 @@ export async function buildExportZip({ format = 'csv' } = {}) {
       createdAt: new Date(entry.createdAt).toISOString(),
       updatedAt: new Date(entry.updatedAt).toISOString(),
       notes: entry.notes ?? '',
-      photos: filenames.join('|'),
-      ...(format === 'json'
-        ? { photoMeta: metas }
-        : Object.fromEntries(Object.entries(PHOTO_META_COLUMNS).map(([col, get]) => [
-          col,
-          metas.some((m) => get(m) != null) ? metas.map((m) => get(m) ?? '').join('|') : null,
-        ]))),
-    });
+    };
+    if (photos.length === 0) {
+      rows.push({ ...base, ...photoColumns(null) });
+      continue;
+    }
+    // Eine Zeile pro Foto; die Eintragsdaten werden wiederholt.
+    for (let i = 0; i < photos.length; i++) {
+      const filename = `entry-${entry.id}-${i + 1}.jpg`;
+      const { blob, meta } = await exportPhoto(photos[i], gps);
+      zip.file(`photos/${filename}`, blob);
+      rows.push({ ...base, ...photoColumns(filename, meta) });
+    }
   }
 
   if (format === 'json') {

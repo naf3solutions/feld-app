@@ -29,8 +29,8 @@ export async function renderExport({ root }) {
 
       <p class="hint">
         Das ZIP enthält die Tabelle und alle Fotos im Unterordner <code>photos/</code>.
-        In der Spalte <code>photos</code> stehen die Dateinamen mehrerer Fotos mit <code>|</code> getrennt.
-        Die Spalten <code>photoCamera</code> … <code>photoFocalLength35mm</code> enthalten die Kameradaten je Foto in derselben Reihenfolge.
+        Jedes Foto bekommt eine eigene Zeile (Spalte <code>photo</code> = Dateiname, dazu die Kameradaten <code>photoCamera</code> … <code>photoFocalLength35mm</code>);
+        die Eintragsdaten werden dabei wiederholt. Einträge ohne Foto stehen in einer Zeile mit leeren Foto-Spalten.
         Die Fotos tragen EXIF-Daten inkl. der GPS-Position des Eintrags.
         Die CSV nutzt Semikolon als Feldtrenner und Komma als Dezimaltrennzeichen (Excel-DE-Standard).
       </p>

@@ -28,6 +28,7 @@ export async function renderEditor({ root, params }) {
     } : null,
     gpsCandidate: null,
     entryId: isNew ? null : Number(params.id),
+    selectedPhotoId: null,
   };
   const objectUrls = [];
 
@@ -226,8 +227,9 @@ export async function renderEditor({ root, params }) {
       msg.textContent = 'Verarbeite Foto…';
       const { blob, thumbnail, exif, meta, hadOriginalExif } = await processPhoto(file, { gps: state.gps });
       const entryId = await ensureEntryId();
-      await addPhoto({ entryId, blob, thumbnail, exif, meta });
-      msg.textContent = describeExif(meta, hadOriginalExif, file);
+      const source = { type: file.type, size: file.size, hadExif: hadOriginalExif };
+      const photoId = await addPhoto({ entryId, blob, thumbnail, exif, meta, source });
+      state.selectedPhotoId = photoId;
       await renderPhotos();
     } catch (err) {
       msg.textContent = err.message;
@@ -248,15 +250,22 @@ export async function renderEditor({ root, params }) {
       grid.innerHTML = '<p class="muted">Noch keine Fotos.</p>';
       return;
     }
+    if (!photos.some((p) => p.id === state.selectedPhotoId)) state.selectedPhotoId = null;
     for (const photo of photos) {
       const url = URL.createObjectURL(photo.thumbnail);
       objectUrls.push(url);
       const tile = document.createElement('div');
-      tile.className = 'photo-tile';
+      tile.className = 'photo-tile' + (photo.id === state.selectedPhotoId ? ' selected' : '');
       tile.innerHTML = `
-        <img src="${url}" alt="" />
+        <img src="${url}" alt="Foto anzeigen" />
         <button type="button" class="photo-del" aria-label="Foto löschen">×</button>
       `;
+      tile.querySelector('img').addEventListener('click', () => {
+        state.selectedPhotoId = state.selectedPhotoId === photo.id ? null : photo.id;
+        grid.querySelectorAll('.photo-tile').forEach((t) => t.classList.remove('selected'));
+        if (state.selectedPhotoId != null) tile.classList.add('selected');
+        showPhotoInfo(photos.find((p) => p.id === state.selectedPhotoId));
+      });
       tile.querySelector('.photo-del').addEventListener('click', async () => {
         if (!confirm('Dieses Foto löschen?')) return;
         await deletePhoto(photo.id);
@@ -264,6 +273,13 @@ export async function renderEditor({ root, params }) {
       });
       grid.appendChild(tile);
     }
+    showPhotoInfo(photos.find((p) => p.id === state.selectedPhotoId));
+  }
+
+  function showPhotoInfo(photo) {
+    const msg = root.querySelector('#photo-msg');
+    msg.classList.remove('error');
+    msg.textContent = photo ? describePhoto(photo) : '';
   }
 
   function collectData() {
@@ -305,12 +321,13 @@ export async function renderEditor({ root, params }) {
   };
 }
 
-// Kurzinfo, welche Metadaten vom Browser beim Foto mitgeliefert wurden.
-function describeExif(meta, hadOriginalExif, file) {
-  const fileInfo = `${file.type || 'unbekannter Typ'}, ${Math.round(file.size / 1024)} KB`;
-  if (!hadOriginalExif) {
-    return `Keine Kameradaten vom Browser erhalten (${fileInfo}).`;
-  }
+// Kurzinfo zu einem gespeicherten Foto: Aufnahmezeit + Kameradaten bzw.
+// Hinweis, dass der Browser keine geliefert hat.
+function describePhoto(photo) {
+  const meta = photo.meta ?? {};
+  const time = new Date(meta.dateTimeOriginal ?? photo.takenAt).toLocaleString('de-DE', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  });
   const parts = [
     meta.camera,
     meta.exposureTime,
@@ -318,9 +335,13 @@ function describeExif(meta, hadOriginalExif, file) {
     meta.iso != null ? `ISO ${meta.iso}` : null,
     meta.focalLength != null ? `${String(meta.focalLength).replace('.', ',')} mm` : null,
   ].filter(Boolean);
-  return parts.length
-    ? `Kamera: ${parts.join(' · ')}`
-    : `EXIF erhalten, aber ohne Kameradaten (${fileInfo}).`;
+  if (parts.length) return `${time} · ${parts.join(' · ')}`;
+  const src = photo.source;
+  if (!src) return `${time} · keine Kameradaten gespeichert (Foto vor dem EXIF-Update)`;
+  const fileInfo = `${src.type || 'unbekannter Typ'}, ${Math.round(src.size / 1024)} KB`;
+  return src.hadExif
+    ? `${time} · EXIF erhalten, aber ohne Kameradaten (${fileInfo})`
+    : `${time} · keine Kameradaten vom Browser erhalten (${fileInfo})`;
 }
 
 function autoGrow(textarea) {
