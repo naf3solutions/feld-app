@@ -185,10 +185,17 @@ export async function renderEditor({ root, params }) {
       });
     } else if (state.gps) {
       section.innerHTML = `
-        <div class="gps-box">${renderGpsLines(state.gps)}</div>
+        <a class="gps-box gps-link" href="${escapeAttr(mapsUrl(state.gps, nameInput.value.trim()))}" aria-label="Position in Karten-App öffnen">
+          <div class="gps-link-body">${renderGpsLines(state.gps)}</div>
+          <svg class="gps-link-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z"/><path d="M9 4v14M15 6v14"/></svg>
+        </a>
         <button type="button" class="btn" id="btn-gps">Erneut messen</button>
       `;
       section.querySelector('#btn-gps').addEventListener('click', onGetGps);
+      // Aktuellen Namen als Beschriftung der Stecknadel verwenden
+      section.querySelector('.gps-link').addEventListener('click', (e) => {
+        e.currentTarget.href = mapsUrl(state.gps, nameInput.value.trim());
+      });
     } else {
       section.innerHTML = `
         <div class="gps-box"><p class="muted">Noch nicht ermittelt.</p></div>
@@ -475,6 +482,25 @@ function describePhoto(photo) {
   return src.hadExif
     ? `${time} · EXIF erhalten, aber ohne Kameradaten (${fileInfo})`
     : `${time} · keine Kameradaten vom Browser erhalten (${fileInfo})`;
+}
+
+// Link, der die Position in der Karten-App des Geräts öffnet.
+function mapsUrl(gps, label) {
+  const ll = `${gps.lat.toFixed(6)},${gps.lng.toFixed(6)}`;
+  const ua = navigator.userAgent;
+  const isApple = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+  if (isApple) {
+    const q = encodeURIComponent(label || ll);
+    return `https://maps.apple.com/?ll=${ll}&q=${q}`;
+  }
+  if (/Android/.test(ua)) {
+    return `geo:${ll}?q=${ll}${label ? `(${encodeURIComponent(label)})` : ''}`;
+  }
+  return `https://www.google.com/maps/search/?api=1&query=${ll}`;
+}
+
+function escapeAttr(s) {
+  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
 function autoGrow(textarea) {
