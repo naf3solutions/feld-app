@@ -18,7 +18,7 @@ export default defineConfig(({ command }) => ({
         name: 'Feld-Erfassung',
         short_name: 'Feld',
         description: 'Name, GPS, Fotos und Notizen lokal erfassen',
-        theme_color: '#2563eb',
+        theme_color: '#1d4ed8',
         background_color: '#0f172a',
         display: 'standalone',
         orientation: 'portrait',

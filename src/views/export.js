@@ -8,7 +8,7 @@ export async function renderExport({ root }) {
 
   root.innerHTML = `
     <header class="topbar">
-      <a class="link" href="#/" data-action="back">← Zurück</a>
+      <a class="link" href="#/" data-action="back"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>Zurück</a>
       <h1>Export<small>${BUILD_LABEL}</small></h1>
       <span></span>
     </header>
