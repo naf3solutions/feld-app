@@ -32,12 +32,14 @@ export async function deleteEntry(id) {
   });
 }
 
-export async function addPhoto({ entryId, blob, thumbnail }) {
+export async function addPhoto({ entryId, blob, thumbnail, exif = null, meta = null }) {
   return db.photos.add({
     entryId: Number(entryId),
     blob,
     thumbnail,
-    takenAt: Date.now(),
+    exif,   // piexif-Objekt, wird beim Export mit aktuellem GPS neu geschrieben
+    meta,   // kompakte Kamera-Metadaten für CSV/JSON
+    takenAt: meta?.dateTimeOriginal ?? Date.now(),
   });
 }
 

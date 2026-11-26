@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "dexie": "^4.0.10",
-    "jszip": "^3.10.1"
+    "jszip": "^3.10.1",
+    "piexifjs": "^1.0.6"
   },
   "devDependencies": {
     "vite": "^5.4.10",

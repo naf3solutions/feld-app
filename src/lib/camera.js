@@ -1,3 +1,5 @@
+import { readExif, prepareExif, setGps, insertExif, summarizeExif } from './exif.js';
+
 const MAX_EDGE = 1600;
 const THUMB_EDGE = 200;
 const JPEG_QUALITY = 0.85;
@@ -24,12 +26,36 @@ export function pickPhoto() {
   });
 }
 
-export async function processPhoto(file) {
+/**
+ * Verkleinert das Foto, übernimmt das Original-EXIF (Kamera, Belichtung,
+ * Aufnahmezeit …) und schreibt – falls vorhanden – die GPS-Position des
+ * Eintrags hinein.
+ */
+export async function processPhoto(file, { gps = null } = {}) {
+  const originalExif = await readExif(file);
   const bitmap = await loadBitmap(file);
   try {
-    const fullBlob = await resizeToBlob(bitmap, MAX_EDGE, JPEG_QUALITY);
-    const thumbBlob = await resizeToBlob(bitmap, THUMB_EDGE, THUMB_QUALITY);
-    return { blob: fullBlob, thumbnail: thumbBlob };
+    const full = await resizeToBlob(bitmap, MAX_EDGE, JPEG_QUALITY);
+    const thumb = await resizeToBlob(bitmap, THUMB_EDGE, THUMB_QUALITY);
+    const exif = prepareExif(originalExif, {
+      width: full.width,
+      height: full.height,
+      fallbackTime: file.lastModified || Date.now(),
+    });
+    setGps(exif, gps);
+    let blob = full.blob;
+    try {
+      blob = await insertExif(full.blob, exif);
+    } catch (err) {
+      console.warn('[exif] Einfügen fehlgeschlagen, Foto ohne EXIF gespeichert', err);
+    }
+    return {
+      blob,
+      thumbnail: thumb.blob,
+      exif,
+      meta: summarizeExif(exif),
+      hadOriginalExif: !!originalExif,
+    };
   } finally {
     bitmap.close?.();
   }
@@ -73,11 +99,12 @@ async function resizeToBlob(source, maxEdge, quality) {
   canvas.height = h;
   const ctx = canvas.getContext('2d');
   ctx.drawImage(source, 0, 0, w, h);
-  return await new Promise((resolve, reject) => {
+  const blob = await new Promise((resolve, reject) => {
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new Error('Bild-Encoding fehlgeschlagen.'))),
+      (b) => (b ? resolve(b) : reject(new Error('Bild-Encoding fehlgeschlagen.'))),
       'image/jpeg',
       quality
     );
   });
+  return { blob, width: w, height: h };
 }
