@@ -361,3 +361,6 @@ code {
 
 .photo-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .photo-actions .btn { flex: 1 1 140px; }
+
+.photo-tile img { cursor: pointer; }
+.photo-tile.selected { outline: 3px solid var(--accent); outline-offset: -3px; }
