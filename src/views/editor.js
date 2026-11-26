@@ -5,6 +5,7 @@ import {
 import { navigate } from '../router.js';
 import { getCurrentPosition } from '../lib/geo.js';
 import { pickPhoto, processPhoto } from '../lib/camera.js';
+import { suggestNamesFromPhoto, readAtPoint } from '../lib/ocr.js';
 import { BUILD_LABEL } from '../lib/build-info.js';
 
 export async function renderEditor({ root, params }) {
@@ -45,10 +46,19 @@ export async function renderEditor({ root, params }) {
       </button>
     </header>
     <main class="editor">
-      <label class="field">
-        <span class="label">Name</span>
-        <input type="text" id="f-name" autocomplete="off" inputmode="text" />
-      </label>
+      <div class="field">
+        <label class="label" for="f-name">Name</label>
+        <div class="name-row">
+          <input type="text" id="f-name" autocomplete="off" inputmode="text" />
+          <button type="button" class="icon-btn" id="btn-ocr" aria-label="Name aus Foto lesen" title="Name aus Foto lesen">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/>
+              <path d="M7 9h10M7 12h10M7 15h6"/>
+            </svg>
+          </button>
+        </div>
+        <div class="ocr-box" id="ocr-box" role="status"></div>
+      </div>
 
       <section class="field">
         <span class="label">GPS</span>
@@ -92,6 +102,7 @@ export async function renderEditor({ root, params }) {
   root.querySelector('#btn-photo-lib').addEventListener('click', () => onAddPhoto({ camera: false }));
   root.querySelector('#btn-save').addEventListener('click', onSave);
   root.querySelector('#btn-save-quick').addEventListener('click', onSave);
+  root.querySelector('#btn-ocr').addEventListener('click', () => onOcr());
   if (!isNew) {
     root.querySelector('#btn-delete').addEventListener('click', onDelete);
   }
@@ -231,6 +242,8 @@ export async function renderEditor({ root, params }) {
       const photoId = await addPhoto({ entryId, blob, thumbnail, exif, meta, source });
       state.selectedPhotoId = photoId;
       await renderPhotos();
+      // Noch kein Name? → Schild im neuen Foto lesen und Vorschläge zeigen.
+      if (!nameInput.value.trim()) onOcr({ photoId, auto: true });
     } catch (err) {
       msg.textContent = err.message;
       msg.classList.add('error');
@@ -274,6 +287,125 @@ export async function renderEditor({ root, params }) {
       grid.appendChild(tile);
     }
     showPhotoInfo(photos.find((p) => p.id === state.selectedPhotoId));
+  }
+
+  // ---------- Schrifterkennung für den Namen ----------
+
+  async function pickOcrPhoto(photoId) {
+    if (state.entryId == null) return null;
+    const photos = await getPhotosForEntry(state.entryId);
+    const id = photoId ?? state.selectedPhotoId;
+    return photos.find((p) => p.id === id) ?? photos[photos.length - 1] ?? null;
+  }
+
+  function renderOcrBox({ status = '', error = false, suggestions = null, photo = null } = {}) {
+    const box = root.querySelector('#ocr-box');
+    box.innerHTML = '';
+    if (status) {
+      const p = document.createElement('p');
+      p.className = 'hint' + (error ? ' error' : '');
+      p.textContent = status;
+      box.appendChild(p);
+    }
+    if (!suggestions) return;
+    const chips = document.createElement('div');
+    chips.className = 'chips';
+    for (const text of suggestions) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip';
+      chip.textContent = text;
+      chip.addEventListener('click', () => {
+        nameInput.value = text;
+        renderOcrBox();
+      });
+      chips.appendChild(chip);
+    }
+    if (photo) {
+      const tap = document.createElement('button');
+      tap.type = 'button';
+      tap.className = 'chip chip-alt';
+      tap.textContent = 'Auf Schild tippen…';
+      tap.addEventListener('click', () => openTapOverlay(photo));
+      chips.appendChild(tap);
+    }
+    const close = document.createElement('button');
+    close.type = 'button';
+    close.className = 'chip chip-alt';
+    close.textContent = '×';
+    close.setAttribute('aria-label', 'Vorschläge schließen');
+    close.addEventListener('click', () => renderOcrBox());
+    chips.appendChild(close);
+    box.appendChild(chips);
+  }
+
+  async function onOcr({ photoId = null, auto = false } = {}) {
+    const photo = await pickOcrPhoto(photoId);
+    if (!photo) {
+      renderOcrBox({ status: 'Erst ein Foto vom Schild aufnehmen.', error: true });
+      return;
+    }
+    const btn = root.querySelector('#btn-ocr');
+    btn.disabled = true;
+    try {
+      renderOcrBox({ status: 'Suche Schild…' });
+      const results = await suggestNamesFromPhoto(photo.blob, {
+        onStatus: (s) => renderOcrBox({ status: s }),
+      });
+      if (results.length) {
+        renderOcrBox({ status: 'Name übernehmen:', suggestions: results.map((r) => r.text), photo });
+      } else {
+        renderOcrBox({
+          status: auto ? 'Kein Schild erkannt.' : 'Kein Schild erkannt – tippe im Foto auf das Schild.',
+          suggestions: [], photo,
+        });
+      }
+    } catch (err) {
+      console.error('[ocr]', err);
+      renderOcrBox({ status: `Texterkennung fehlgeschlagen: ${err.message}`, error: true });
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function openTapOverlay(photo) {
+    const url = URL.createObjectURL(photo.blob);
+    const overlay = document.createElement('div');
+    overlay.className = 'tap-overlay';
+    overlay.innerHTML = `
+      <p class="tap-hint">Tippe auf das Schild</p>
+      <img src="${url}" alt="Foto" />
+      <button type="button" class="btn">Abbrechen</button>
+    `;
+    const closeOverlay = () => {
+      overlay.remove();
+      URL.revokeObjectURL(url);
+    };
+    overlay.querySelector('button').addEventListener('click', () => {
+      closeOverlay();
+      renderOcrBox();
+    });
+    overlay.querySelector('img').addEventListener('click', async (e) => {
+      const r = e.currentTarget.getBoundingClientRect();
+      const relX = (e.clientX - r.left) / r.width;
+      const relY = (e.clientY - r.top) / r.height;
+      closeOverlay();
+      try {
+        renderOcrBox({ status: 'Lese Schild…' });
+        const res = await readAtPoint(photo.blob, relX, relY, {
+          onStatus: (s) => renderOcrBox({ status: s }),
+        });
+        if (res?.lines.length) {
+          renderOcrBox({ status: 'Name übernehmen:', suggestions: res.lines.slice(0, 5), photo });
+        } else {
+          renderOcrBox({ status: 'An dieser Stelle keinen Text erkannt.', suggestions: [], photo });
+        }
+      } catch (err) {
+        console.error('[ocr]', err);
+        renderOcrBox({ status: `Texterkennung fehlgeschlagen: ${err.message}`, error: true });
+      }
+    });
+    document.body.appendChild(overlay);
   }
 
   function showPhotoInfo(photo) {
